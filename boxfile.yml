@@ -1,0 +1,52 @@
+run.config:
+  # Runtime engine
+  engine: elixir
+  engine.config:
+    runtime: elixir-1.4
+    erlang_runtime: erlang-20.0
+
+  dev_packages:
+    - nodejs
+    - inotify-tools # ensure inotify exists for hot-code reloading
+
+  # Contents of these dirs to be cached inside of Nanobox
+  cache_dirs:
+    - apps/phoenix_nanobox_web/assets/node_modules
+
+  # Additions to $PATH
+  extra_path_dirs:
+    - apps/phoenix_nanobox_web/assets/node_modules/.bin
+
+  # Custom commands to prepare the environment
+  extra_steps:
+    - mix archive.install https://github.com/phoenixframework/archives/raw/master/phx_new.ez --force
+    - mix deps.get
+    - cd apps/phoenix_nanobox_web/assets && npm install && node node_modules/brunch/bin/brunch build && cd ../../../
+
+  # Build Triggers - Changes to these files automatically
+  # trigger a new build the next time a build is required.
+  build_triggers:
+    - apps/phoenix_nanobox/mix.exs
+    - apps/phoenix_nanobox/mix.lock
+    - apps/phoenix_nanobox_web/mix.exs
+    - apps/phoenix_nanobox_web/mix.lock
+    - apps/phoenix_nanobox_web/assets/package.json
+
+  # Enable filesystem watcher
+  fs_watch: true
+
+deploy.config:
+  # generate the static assets digest
+  extra_steps:
+    - cd apps/phoenix_nanobox_web && mix phoenix.digest && cd ../../
+
+  before_live:
+    web.main:
+      - mix ecto.create --quiet
+      - mix ecto.migrate
+
+data.db:
+  image: nanobox/postgresql:9.5
+
+web.main:
+  start: node-start mix phoenix.server
